@@ -1,19 +1,24 @@
 import { atom } from "recoil";
 
-export interface ITodo {
-  id: number;
+export const saveBoard = (item: IBoard) =>
+  localStorage.setItem("BOARD", JSON.stringify(item));
+
+export const loadBoard = (): IBoard | null => {
+  const board = localStorage.getItem("BOARD");
+  if (board) return JSON.parse(board);
+  return null;
+};
+
+export interface IBoardItem {
+  id: string;
   text: string;
 }
 
-interface IToDoState {
-  [key: string]: ITodo[];
+interface IBoard {
+  [key: string]: IBoardItem[];
 }
 
-export const toDoState = atom<IToDoState>({
-  key: "toDo",
-  default: {
-    "To Do": [],
-    Doing: [],
-    Done: [],
-  },
+export const recoilBoard = atom<IBoard>({
+  key: "board",
+  default: loadBoard() ?? {},
 });

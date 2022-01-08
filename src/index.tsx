@@ -74,12 +74,11 @@ a {
 
 ReactDOM.render(
   <React.StrictMode>
-    <RecoilRoot>
-      <ThemeProvider theme={darkTheme}>
-        <GlobalStyle />
+    <ThemeProvider theme={darkTheme}>
+      <RecoilRoot>
         <App />
-      </ThemeProvider>
-    </RecoilRoot>
+      </RecoilRoot>
+    </ThemeProvider>
   </React.StrictMode>,
   document.getElementById("root")
 );

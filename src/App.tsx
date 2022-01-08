@@ -1,83 +1,136 @@
-import { DragDropContext, DropResult } from "react-beautiful-dnd";
-import { useRecoilState } from "recoil";
 import styled from "styled-components";
-import { toDoState } from "./atoms";
+import GlobalStyle from "./styles/GlobalStyle";
+import { DragDropContext, Droppable, DropResult } from "react-beautiful-dnd";
+import AddBoard from "./Components/AddBoard";
+import { useRecoilState } from "recoil";
+import { recoilBoard, saveBoard } from "./atoms";
 import Board from "./Components/Board";
+import { useEffect } from "react";
 
-const Wrapper = styled.div`
+const Main = styled.main`
+  width: min-content;
   display: flex;
-  width: 100%;
-  margin: 0 auto;
-  justify-content: center;
+  justify-content: flex-start;
+  margin-top: 50px;
+`;
+
+const TrashBox = styled.section`
+  display: flex;
   align-items: center;
-  height: 100vh;
-`;
-
-const Title = styled.h2`
-  display: flex;
   position: absolute;
-  top: 40px;
-  font-size: 20px;
-  font-weight: bolder;
+  top: 0;
+  left: 0;
+  transition: all 0.2s ease-in;
+  &:hover {
+    transform: scale(1.3);
+    svg {
+      color: red;
+    }
+  }
 `;
 
-const Container = styled.form`
-  border: 21px solid white;
-`;
-
-const Boards = styled.div`
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  width: 100%;
-  gap: 10px;
+const Trash = styled.div`
+  width: 50px;
+  height: 100px;
 `;
 
 function App() {
-  const [toDos, setToDos] = useRecoilState(toDoState);
-  const onDragEnd = (info: DropResult) => {
-    const { destination, source } = info;
-    if (!destination) return;
-    if (destination?.droppableId === source.droppableId) {
-      setToDos((allBoards) => {
-        const boardCopy = [...allBoards[source.droppableId]];
-        const taskObj = boardCopy[source.index];
-        boardCopy.splice(source.index, 1);
-        boardCopy.splice(destination?.index, 0, taskObj);
-        return {
-          ...allBoards,
-          [source.droppableId]: boardCopy,
-        };
+  const [board, setBoard] = useRecoilState(recoilBoard);
+
+  const onDragEnd = (data: DropResult) => {
+    const { source, destination, type } = data;
+
+    if (!destination || !source) return;
+
+    if (destination.droppableId === "trash-card") {
+      setBoard((prev) => {
+        const new_item = [...board[source.droppableId]];
+        new_item.splice(source.index, 1);
+        return { ...prev, [source.droppableId]: new_item };
       });
+      return;
+    } else if (destination.droppableId === "trash-board") {
+      setBoard((prev) => {
+        const new_board = { ...prev };
+        delete new_board[data.draggableId];
+        return new_board;
+      });
+      return;
     }
-    if (destination.droppableId !== source.droppableId) {
-      setToDos((allBoards) => {
-        const sourceBoard = [...allBoards[source.droppableId]];
-        const taskObj = sourceBoard[source.index];
-        const destinationBoard = [...allBoards[destination.droppableId]];
-        sourceBoard.splice(source.index, 1);
-        destinationBoard.splice(destination?.index, 0, taskObj);
-        return {
-          ...allBoards,
-          [source.droppableId]: sourceBoard,
-          [destination.droppableId]: destinationBoard,
-        };
+
+    if (type === "board") {
+      setBoard((prev) => {
+        const new_board = Object.entries(prev);
+        const [temp] = new_board.splice(source.index, 1);
+        new_board.splice(destination.index, 0, temp);
+        return new_board.reduce(
+          (acc, [key, value]) => ({
+            ...acc,
+            [key]: value,
+          }),
+          {}
+        );
       });
+    } else if (type === "card") {
+      if (source.droppableId === destination.droppableId) {
+        const new_arr = [...board[source.droppableId]];
+        const [temp] = new_arr.splice(source.index, 1);
+        new_arr.splice(destination.index, 0, temp);
+        setBoard((prev) => ({ ...prev, [source.droppableId]: new_arr }));
+      } else {
+        const first_arr = [...board[source.droppableId]];
+        const second_arr = [...board[destination.droppableId]];
+        const [temp] = first_arr.splice(source.index, 1);
+        second_arr.splice(destination.index, 0, temp);
+        setBoard((prev) => ({
+          ...prev,
+          [source.droppableId]: first_arr,
+          [destination.droppableId]: second_arr,
+        }));
+      }
     }
   };
+
+  useEffect(() => {
+    saveBoard(board);
+  }, [board]);
+
   return (
-    <DragDropContext onDragEnd={onDragEnd}>
-      <Wrapper>
-        <Title>ToDoList</Title>
-        {/* <Container> */}
-        <Boards>
-          {Object.keys(toDos).map((boardId) => (
-            <Board boardId={boardId} key={boardId} toDos={toDos[boardId]} />
-          ))}
-        </Boards>
-        {/* </Container> */}
-      </Wrapper>
-    </DragDropContext>
+    <>
+      <GlobalStyle />
+      <AddBoard />
+      <DragDropContext onDragEnd={onDragEnd}>
+        <Droppable droppableId="board" direction="horizontal" type="board">
+          {(p) => (
+            <Main ref={p.innerRef} {...p.droppableProps}>
+              {Object.keys(board).map((item, index) => (
+                <Board title={item} key={index} index={index} />
+              ))}
+              {p.placeholder}
+            </Main>
+          )}
+        </Droppable>
+        <TrashBox>
+          <Droppable droppableId="trash-card" type="card">
+            {(p) => (
+              <Trash ref={p.innerRef} {...p.droppableProps}>
+                {p.placeholder}
+              </Trash>
+            )}
+          </Droppable>
+
+          <button>지우기</button>
+
+          <Droppable droppableId="trash-board" type="board">
+            {(p) => (
+              <Trash ref={p.innerRef} {...p.droppableProps}>
+                {p.placeholder}
+              </Trash>
+            )}
+          </Droppable>
+        </TrashBox>
+      </DragDropContext>
+    </>
   );
 }
 

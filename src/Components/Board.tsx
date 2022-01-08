@@ -1,114 +1,154 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { Draggable, Droppable } from "react-beautiful-dnd";
 import { useForm } from "react-hook-form";
-import { Droppable } from "react-beautiful-dnd";
-import DraggableCard from "./DraggableCard";
-import { ITodo, toDoState } from "../atoms";
+import { useRecoilState, useResetRecoilState } from "recoil";
 import styled from "styled-components";
-import { useSetRecoilState } from "recoil";
+import { isJsxOpeningElement } from "typescript";
+import { recoilBoard, IBoardItem } from "../atoms";
+import Button from "./Button";
+import DraggableCard from "./DraggableCard";
 
-const Wrapper = styled.div`
-  width: 300px;
-  padding-top: 10px;
-  background-color: ${(props) => props.theme.boardColor};
-  border-radius: 5px;
-  min-height: 300px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border: 2px solid black;
+const Container = styled.section`
+  width: 270px;
+  background-color: ${(props) => props.theme.bgColor};
+  border-radius: 4px;
+  padding: 10px;
+  height: min-content;
+  margin-right: 10px;
 `;
 
-interface IAreaProps {
-  isDraggingFromThis: boolean;
-  isDraggingOver: boolean;
-}
-
-const Area = styled.div<IAreaProps>`
-  background-color: ${(props) =>
-    props.isDraggingOver
-      ? "#74b9ff"
-      : props.isDraggingFromThis
-      ? "#fab1a0"
-      : "transparent"};
-  flex-grow: 1;
-  transition: background-color 0.3s ease-in-out;
-  padding: 20px;
+const TitleText = styled.h2`
+  color: ${(props) => props.theme.boardColor};
+  padding: 5px;
+  font-weight: bold;
+  margin-bottom: 6px;
 `;
 
-const Title = styled.h2`
-  text-align: center;
-  font-weight: 600;
-  margin-bottom: 10px;
-  font-size: 18px;
-  color: black;
+const Btn = styled.button`
+  width: 100%;
+  padding: 6px 0px;
+  border: none;
+  background-color: transparent;
+  font-size: 14px;
+  border-radius: 4px;
+  transition: all 0.1s ease-in;
+  &:hover {
+    background: rgba(92, 93, 94, 0.1);
+    cursor: pointer;
+  }
+  color: #636e72;
 `;
 
 const Form = styled.form`
+  display: flex;
+  flex-direction: column;
+`;
+
+const TextArea = styled.textarea`
+  resize: none;
   width: 100%;
-  input {
-    width: 100%;
-    padding: 10px;
+  border-radius: 4px;
+  border: none;
+  outline: none;
+  padding: 8px;
+  height: 54px;
+  overflow-wrap: break-word;
+  margin-bottom: 10px;
+  box-shadow: rgba(50, 50, 93, 0.25) 0px 2px 5px -1px,
+    rgba(0, 0, 0, 0.3) 0px 1px 3px -1px;
+`;
+
+const Ul = styled.ul<{ isDraggingOver: boolean }>`
+  min-height: 5px;
+  li {
+    background-color: #636e72;
+    border-radius: 4px;
+  }
+  li.placeholder {
+    height: ${(props) => (props.isDraggingOver ? "auto" : 0)};
+  }
+`;
+
+const CancleBtn = styled.button`
+  border: none;
+  font-size: 18px;
+  margin-left: 6px;
+  &:hover {
+    cursor: pointer;
   }
 `;
 
 interface IBoardProps {
-  toDos: ITodo[];
-  boardId: string;
+  title: string;
+  index: number;
 }
 
 interface IForm {
-  toDo: string;
+  text: string;
 }
 
-function Board({ toDos, boardId }: IBoardProps) {
-  const setToDos = useSetRecoilState(toDoState);
+function Board({ title, index }: IBoardProps) {
+  const [isOpen, setIsOpen] = useState(false);
   const { register, setValue, handleSubmit } = useForm<IForm>();
-  const onValid = ({ toDo }: IForm) => {
-    const newToDo = {
-      id: Date.now(),
-      text: toDo,
-    };
+  const [board, setBoard] = useRecoilState(recoilBoard);
 
-    setToDos((allBoards) => {
-      return {
-        ...allBoards,
-        [boardId]: [newToDo, ...allBoards[boardId]],
-      };
-    });
-    setValue("toDo", "");
+  const onSubmit = handleSubmit(({ text }) => {
+    if (text === "") return;
+
+    const new_arr = [...board[title]];
+    const id = Date.now().toString();
+    new_arr.push({ id, text });
+    setBoard((prev) => ({ ...prev, [title]: new_arr }));
+    setValue("text", "");
+  });
+
+  const MouseDown = ({ target: { nodeName, id } }: any) => {
+    if (id === "root" || nodeName === "H2") setIsOpen(false);
   };
+
+  useEffect(() => {
+    document.body.addEventListener("mousedown", (e) => MouseDown(e));
+    return () => document.body.removeEventListener("mousedown", MouseDown);
+  }, []);
+
   return (
-    <Wrapper>
-      <Title>{boardId}</Title>
-      <Form onSubmit={handleSubmit(onValid)}>
-        <input
-          {...register("toDo", { required: true })}
-          type="text"
-          maxLength={20}
-          placeholder={`Add task on ${boardId}`}
-        />
-      </Form>
-      <Droppable droppableId={boardId}>
-        {(magic, info) => (
-          <Area
-            isDraggingOver={info.isDraggingOver}
-            isDraggingFromThis={Boolean(info.draggingFromThisWith)}
-            ref={magic.innerRef}
-            {...magic.droppableProps}
-          >
-            {toDos.map((toDo, index) => (
-              <DraggableCard
-                key={toDo.id}
-                index={index}
-                toDoId={toDo.id}
-                toDoText={toDo.text}
+    <Draggable draggableId={title} index={index} key={title}>
+      {(magic) => (
+        <Container ref={magic.innerRef} {...magic.draggableProps}>
+          <TitleText {...magic.dragHandleProps}>{title.slice(0, -1)}</TitleText>
+          <Droppable direction="vertical" droppableId={title} type="card">
+            {(p, s) => (
+              <Ul
+                ref={p.innerRef}
+                {...p.droppableProps}
+                isDraggingOver={s.isDraggingOver}
+              >
+                {board[title].map((data: IBoardItem, index) => (
+                  <DraggableCard key={index} data={data} index={index} />
+                ))}
+                <li className="placeholder">{p.placeholder}</li>
+              </Ul>
+            )}
+          </Droppable>
+          {isOpen ? (
+            <Form onSubmit={onSubmit}>
+              <TextArea
+                placeholder="Enter a title for this card..."
+                {...register("text")}
               />
-            ))}
-            {magic.placeholder}
-          </Area>
-        )}
-      </Droppable>
-    </Wrapper>
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <Button text="Add card" />
+                <CancleBtn type="button" onClick={() => setIsOpen(false)}>
+                  ✖
+                </CancleBtn>
+              </div>
+            </Form>
+          ) : (
+            <Btn onClick={() => setIsOpen(true)}>+ Add a card</Btn>
+          )}
+        </Container>
+      )}
+    </Draggable>
   );
 }
 
